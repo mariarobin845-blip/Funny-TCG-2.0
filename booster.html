@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Version 1 – Ouverture de booster</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>📦 Ouverture de booster</h1>
+  <p class="sous-titre">5 cartes par booster, la dernière est au minimum super rare.</p>
+  <nav>
+    <a href="index.html">Accueil</a>
+    <a href="collection.html">Collection</a>
+    <a href="pity.html">Tirage à pitié</a>
+  </nav>
+
+  <button id="ouvrir">Ouvrir un booster</button>
+  <button id="tout" class="secondaire">Tout retourner</button>
+
+  <div class="grille" id="booster"></div>
+
+  <div class="panneau">
+    <strong>Taux de tirage</strong>
+    <table id="taux"></table>
+  </div>
+
+  <script src="cards.js"></script>
+  <script>
+    const zone = document.getElementById("booster");
+
+    function ouvrirBooster() {
+      zone.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const minimum = i === 4 ? "super_rare" : null;
+        const carte = tirerCarte(tirerRarete(minimum));
+        const el = creerCarteHTML(carte);
+        el.addEventListener("click", () => el.classList.add("retournee"));
+        zone.appendChild(el);
+      }
+    }
+
+    document.getElementById("ouvrir").onclick = ouvrirBooster;
+    document.getElementById("tout").onclick = () =>
+      zone.querySelectorAll(".carte").forEach((c, i) =>
+        setTimeout(() => c.classList.add("retournee"), i * 250));
+
+    // Affichage des taux
+    document.getElementById("taux").innerHTML = ORDRE.map(r =>
+      `<tr><td><span class="pastille" style="background:${RARETES[r].couleur}"></span>${RARETES[r].label}</td>
+       <td>${RARETES[r].taux} %</td></tr>`).join("");
+
+    ouvrirBooster();
+  </script>
+</body>
+</html>
