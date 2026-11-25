@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Version 2 – Collection</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>📚 Ma collection</h1>
+  <p class="sous-titre">Ouvre des boosters, complète l'album. Ta progression est sauvegardée dans ton navigateur.</p>
+  <nav>
+    <a href="index.html">Accueil</a>
+    <a href="booster.html">Booster</a>
+    <a href="pity.html">Tirage à pitié</a>
+  </nav>
+
+  <button id="ouvrir">Ouvrir un booster (5 cartes)</button>
+  <button id="reset" class="secondaire">Réinitialiser</button>
+
+  <div class="panneau">
+    <div id="progression">0 / 0 cartes découvertes</div>
+    <div class="barre"><div id="barre"></div></div>
+  </div>
+
+  <div id="filtres"></div>
+  <div class="grille" id="album"></div>
+
+  <script src="cards.js"></script>
+  <script>
+    const CLE = "collection-cartes";
+    let filtre = "toutes";
+
+    const charger = () => {
+      try { return JSON.parse(localStorage.getItem(CLE)) || {}; }
+      catch (e) { return {}; }
+    };
+    const sauver = (c) => {
+      try { localStorage.setItem(CLE, JSON.stringify(c)); } catch (e) {}
+    };
+    let collection = charger();
+
+    function afficher() {
+      const album = document.getElementById("album");
+      album.innerHTML = "";
+      const liste = CARTES.filter(c => filtre === "toutes" || c.rarete === filtre);
+      for (const carte of liste) {
+        const n = collection[carte.id] || 0;
+        if (n > 0) {
+          const el = creerCarteHTML(carte, true);
+          if (n > 1) {
+            const badge = document.createElement("div");
+            badge.className = "compteur";
+            badge.textContent = "x" + n;
+            el.appendChild(badge);
+          }
+          album.appendChild(el);
+        } else {
+          album.appendChild(creerCarteInconnue());
+        }
+      }
+      const decouvertes = CARTES.filter(c => collection[c.id] > 0).length;
+      document.getElementById("progression").textContent =
+        `${decouvertes} / ${CARTES.length} cartes découvertes`;
+      document.getElementById("barre").style.width =
+        (decouvertes / CARTES.length * 100) + "%";
+    }
+
+    function creerFiltres() {
+      const zone = document.getElementById("filtres");
+      const options = [["toutes", "Toutes"], ...ORDRE.map(r => [r, RARETES[r].label])];
+      zone.innerHTML = "";
+      for (const [valeur, texte] of options) {
+        const b = document.createElement("button");
+        b.textContent = texte;
+        b.className = "secondaire" + (filtre === valeur ? " actif" : "");
+        b.onclick = () => { filtre = valeur; creerFiltres(); afficher(); };
+        zone.appendChild(b);
+      }
+    }
+
+    document.getElementById("ouvrir").onclick = () => {
+      for (let i = 0; i < 5; i++) {
+        const carte = tirerCarte(tirerRarete(i === 4 ? "super_rare" : null));
+        collection[carte.id] = (collection[carte.id] || 0) + 1;
+      }
+      sauver(collection);
+      afficher();
+    };
+
+    document.getElementById("reset").onclick = () => {
+      if (confirm("Effacer toute ta collection ?")) {
+        collection = {};
+        sauver(collection);
+        afficher();
+      }
+    };
+
+    creerFiltres();
+    afficher();
+  </script>
+</body>
+</html>
