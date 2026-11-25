@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Version 3 – Tirage avec pitié</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>🎰 Tirage avec garantie</h1>
+  <p class="sous-titre">Une carte légendaire est garantie au bout de 30 tirages sans en obtenir.</p>
+  <nav>
+    <a href="index.html">Accueil</a>
+    <a href="booster.html">Booster</a>
+    <a href="collection.html">Collection</a>
+  </nav>
+
+  <button id="x1">Tirer 1 carte</button>
+  <button id="x10">Tirer 10 cartes</button>
+  <button id="reset" class="secondaire">Remettre à zéro</button>
+
+  <div class="panneau">
+    <div id="pitie-texte"></div>
+    <div class="barre"><div id="pitie-barre"></div></div>
+  </div>
+
+  <div class="grille" id="resultats"></div>
+
+  <div class="panneau">
+    <strong>Statistiques</strong>
+    <table id="stats"></table>
+  </div>
+
+  <script src="cards.js"></script>
+  <script>
+    const SEUIL = 30;
+    let sansLegendaire = 0;
+    let total = 0;
+    const compte = Object.fromEntries(ORDRE.map(r => [r, 0]));
+
+    function tirer() {
+      let rarete;
+      if (sansLegendaire >= SEUIL - 1) rarete = "legendaire";
+      else rarete = tirerRarete();
+
+      total++;
+      compte[rarete]++;
+      sansLegendaire = rarete === "legendaire" ? 0 : sansLegendaire + 1;
+      return tirerCarte(rarete);
+    }
+
+    function lancer(n) {
+      const zone = document.getElementById("resultats");
+      zone.innerHTML = "";
+      for (let i = 0; i < n; i++) {
+        const el = creerCarteHTML(tirer());
+        zone.appendChild(el);
+        setTimeout(() => el.classList.add("retournee"), 150 + i * 200);
+      }
+      majStats();
+    }
+
+    function majStats() {
+      document.getElementById("pitie-texte").textContent =
+        `Compteur de garantie : ${sansLegendaire} / ${SEUIL - 1}`;
+      document.getElementById("pitie-barre").style.width =
+        (sansLegendaire / (SEUIL - 1) * 100) + "%";
+
+      document.getElementById("stats").innerHTML =
+        ORDRE.map(r => {
+          const pct = total ? (compte[r] / total * 100).toFixed(1) : "0.0";
+          return `<tr><td><span class="pastille" style="background:${RARETES[r].couleur}"></span>${RARETES[r].label}</td>
+                  <td>${compte[r]} (${pct} %)</td></tr>`;
+        }).join("") + `<tr><td><strong>Total</strong></td><td><strong>${total}</strong></td></tr>`;
+    }
+
+    document.getElementById("x1").onclick = () => lancer(1);
+    document.getElementById("x10").onclick = () => lancer(10);
+    document.getElementById("reset").onclick = () => {
+      sansLegendaire = 0; total = 0;
+      ORDRE.forEach(r => compte[r] = 0);
+      document.getElementById("resultats").innerHTML = "";
+      majStats();
+    };
+
+    majStats();
+  </script>
+</body>
+</html>
