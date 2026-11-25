@@ -53,9 +53,15 @@
       const zone = document.getElementById("resultats");
       zone.innerHTML = "";
       for (let i = 0; i < n; i++) {
-        const el = creerCarteHTML(tirer());
+        const carte = tirer();
+        const el = creerCarteHTML(carte, false, tirerVariante());
         zone.appendChild(el);
-        setTimeout(() => el.classList.add("retournee"), 150 + i * 200);
+        setTimeout(() => {
+          el.classList.add("retournee");
+          if (carte.rarete === "legendaire" || carte.rarete === "mythique") {
+            setTimeout(() => flashEcran(RARETES[carte.rarete].couleur), 250);
+          }
+        }, 150 + i * 220);
       }
       majStats();
     }
