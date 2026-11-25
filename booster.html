@@ -5,20 +5,307 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Version 1 – Ouverture de booster</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* =====================================================
+       PACK RÉALISTE : pochette métallisée, soudures crantées,
+       plis, reflet qui suit la souris, déchirure irrégulière
+       ===================================================== */
+    #scene { min-height: 400px; }
+
+    .pack {
+      --mxp: 70px; --myp: 70px;   /* position du reflet (px) */
+      --rx: 0deg; --ry: 0deg;     /* inclinaison */
+      --p: 0; --pos: 0; --flip: 1;
+      --glow: #ffffff;
+      position: relative;
+      width: 220px;
+      height: 320px;
+      margin: 22px auto 34px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      filter: drop-shadow(0 12px 14px #000c);
+      animation: flotte 3.2s ease-in-out infinite;
+    }
+    .pack.tire { animation: none; cursor: grabbing; }
+    .pack:focus-visible { outline: 3px solid #ffe27a; outline-offset: 10px; border-radius: 12px; }
+    @keyframes flotte {
+      0%, 100% { transform: translateY(0) rotate(-1deg); }
+      50%      { transform: translateY(-8px) rotate(1deg); }
+    }
+
+    .pack-3d {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+      transition: transform .25s ease-out;
+    }
+    .pack.tire .pack-3d { transition: none; }
+
+    /* Ombre au sol */
+    .ombre {
+      position: absolute;
+      left: 8%; right: 8%;
+      bottom: -30px;
+      height: 22px;
+      background: radial-gradient(ellipse at center, #000c, transparent 70%);
+      filter: blur(3px);
+      animation: ombre 3.2s ease-in-out infinite;
+    }
+    .pack.tire .ombre, .pack.ouvert .ombre { animation: none; }
+    @keyframes ombre {
+      0%, 100% { transform: scale(1);   opacity: 1; }
+      50%      { transform: scale(.85); opacity: .65; }
+    }
+
+    /* ----- La feuille métallisée (partagée entre haut et corps) ----- */
+    .pack-haut, .pack-corps {
+      position: absolute;
+      left: 0; right: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.16), transparent 30%, rgba(0,0,0,.28) 100%),
+        linear-gradient(105deg, #1b1066 0%, #4a2bd8 14%, #8d4dff 26%, #ff5ad1 40%,
+                                #ffd36a 52%, #ff7ad0 60%, #6a3dff 74%, #281590 88%, #12093f 100%);
+      background-size: 220px 320px, 220px 320px;
+    }
+    .pack-haut  { top: 0; height: 68px; z-index: 2; transition: transform .25s; }
+    .pack.tire .pack-haut { transition: none; }
+    .pack-corps { top: 62px; height: 258px; z-index: 1; background-position: 0 -62px, 0 -62px; }
+
+    /* Plis + effet "coussin" (bords sombres) */
+    .pack-haut::before, .pack-corps::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.55), transparent 12%, transparent 88%, rgba(0,0,0,.55)),
+        linear-gradient(72deg,  transparent 38%, rgba(255,255,255,.10) 39%, rgba(0,0,0,.16) 41%, transparent 43%),
+        linear-gradient(115deg, transparent 58%, rgba(255,255,255,.12) 59%, rgba(0,0,0,.18) 61%, transparent 63%),
+        linear-gradient(95deg,  transparent 18%, rgba(255,255,255,.08) 19%, rgba(0,0,0,.14) 21%, transparent 24%),
+        linear-gradient(160deg, transparent 70%, rgba(0,0,0,.14) 72%, rgba(255,255,255,.09) 74%, transparent 76%);
+      background-size: 220px 320px;
+    }
+    .pack-corps::before { background-position: 0 -62px; }
+
+    /* Reflet de lumière qui suit la souris */
+    .pack-haut::after, .pack-corps::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+      background: radial-gradient(circle 140px at var(--mxp) var(--myp),
+                  rgba(255,255,255,.95), rgba(255,255,255,.2) 50%, transparent 72%);
+    }
+    .pack-corps::after {
+      background: radial-gradient(circle 140px at var(--mxp) calc(var(--myp) - 62px),
+                  rgba(255,255,255,.95), rgba(255,255,255,.2) 50%, transparent 72%);
+    }
+
+    /* Soudures crantées (haut et bas) */
+    .sceau {
+      position: absolute;
+      left: 0; right: 0;
+      height: 26px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.34) 0 1.5px, rgba(0,0,0,.32) 1.5px 3.5px),
+        linear-gradient(180deg, rgba(255,255,255,.30), rgba(0,0,0,.22));
+    }
+    .sceau-haut { top: 0;    border-bottom: 1px solid rgba(0,0,0,.45); }
+    .sceau-bas  { bottom: 0; border-top:    1px solid rgba(0,0,0,.45); }
+
+    .bandeau {
+      position: absolute;
+      top: 30px; left: 0; right: 0;
+      text-align: center;
+      font-size: .58rem;
+      font-weight: 800;
+      letter-spacing: .28em;
+      color: #ffffffd0;
+      text-shadow: 0 1px 2px #000a;
+    }
+
+    /* ----- Impression sur la pochette ----- */
+    .contenu-pack {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      padding: 10px 0 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .embleme {
+      width: 96px; height: 96px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.2rem;
+      color: #fff6b0;
+      border: 3px solid #ffd36a;
+      background:
+        radial-gradient(circle at 35% 30%, #ffffff80, transparent 45%),
+        radial-gradient(circle, #7a3cff, #2a1470 80%);
+      box-shadow: 0 0 0 3px #2a1470, 0 0 0 5px #ffd36a99, 0 6px 14px #000a, inset 0 0 18px #000a;
+      text-shadow: 0 0 12px #ffe27a;
+    }
+    .pack-logo {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: .1em;
+      line-height: 1;
+      margin-top: 6px;
+      color: transparent;
+      background: linear-gradient(180deg, #fffbd0, #ffd75a 45%, #b8860b 55%, #ffe27a);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #3a1f8a;
+      filter: drop-shadow(0 2px 0 #1a0b50) drop-shadow(0 3px 4px #000a);
+    }
+    .pack-sous { font-size: .6rem; font-weight: 800; letter-spacing: .22em; color: #fff; text-shadow: 0 1px 3px #000c; }
+    .rarete-ligne { font-size: .8rem; letter-spacing: 3px; text-shadow: 0 1px 3px #000c; }
+
+    .code-barres {
+      position: absolute;
+      left: 14px; bottom: 34px;
+      z-index: 1;
+      width: 46px; height: 20px;
+      padding: 2px 3px 6px;
+      background:
+        repeating-linear-gradient(90deg, #000 0 1px, #fff 1px 2px, #000 2px 4px, #fff 4px 5px, #000 5px 6px, #fff 6px 9px) content-box,
+        #fff;
+      border-radius: 2px;
+      opacity: .92;
+    }
+    .copyright {
+      position: absolute;
+      right: 14px; bottom: 36px;
+      z-index: 1;
+      font-size: .5rem;
+      letter-spacing: .1em;
+      color: #ffffffb0;
+    }
+
+    /* ----- Ligne de découpe et ciseaux ----- */
+    .coupe {
+      position: absolute;
+      left: 8px; right: 8px;
+      top: 65px;
+      z-index: 3;
+      border-top: 2px dashed rgba(255,255,255,.7);
+      opacity: calc(1 - var(--p) * 1.3);
+      pointer-events: none;
+    }
+    .ciseaux {
+      position: absolute;
+      top: 52px;
+      left: calc(var(--pos) * (100% - 26px));
+      font-size: 1.4rem;
+      z-index: 6;
+      transform: scaleX(var(--flip));
+      filter: drop-shadow(0 2px 2px #000a);
+      pointer-events: none;
+    }
+
+    /* Éclat de lumière à l'ouverture (couleur = meilleure rareté) */
+    .eclat {
+      position: absolute;
+      left: 50%; top: 40%;
+      width: 120px; height: 120px;
+      margin: -60px 0 0 -60px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff, var(--glow) 40%, transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 7;
+    }
+
+    /* Animation d'ouverture */
+    .pack.ouvert { animation: none; pointer-events: none; }
+    .pack.ouvert .pack-haut  { animation: envole .75s ease-in forwards; }
+    .pack.ouvert .pack-corps { animation: disparait .7s .2s ease-in forwards; }
+    .pack.ouvert .coupe, .pack.ouvert .ciseaux { display: none; }
+    .pack.ouvert .eclat      { animation: eclat .9s ease-out forwards; }
+    @keyframes envole {
+      to { transform: translate(90px, -280px) rotate(40deg); opacity: 0; }
+    }
+    @keyframes disparait {
+      to { transform: translateY(50px) scale(.85); opacity: 0; }
+    }
+    @keyframes eclat {
+      0%   { opacity: 0;  transform: scale(.2); }
+      30%  { opacity: 1; }
+      100% { opacity: 0;  transform: scale(9); }
+    }
+    .pack.cache { display: none; }
+    .pack.arrive { animation: arrive .6s ease-out, flotte 3.2s .6s ease-in-out infinite; }
+    @keyframes arrive {
+      from { opacity: 0; transform: translateY(60px) scale(.8); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .consigne { color: #bcd0ff; margin: 6px 0 0; font-size: .95rem; }
+
+    /* Les cartes arrivent une par une */
+    .carte.distribuee { animation: distribue .55s cubic-bezier(.2, 1.2, .4, 1) backwards; animation-delay: calc(var(--i) * .13s); }
+    @keyframes distribue {
+      from { opacity: 0; transform: translateY(-140px) scale(.4) rotate(-10deg); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    #actions { min-height: 56px; }
+  </style>
 </head>
 <body>
   <h1>📦 Ouverture de booster</h1>
-  <p class="sous-titre">5 cartes par booster, la dernière est au minimum super rare. Clique sur une carte pour la retourner.</p>
+  <p class="sous-titre">5 cartes par booster, la dernière est au minimum super rare.</p>
   <nav>
     <a href="index.html">Accueil</a>
     <a href="collection.html">Collection</a>
     <a href="pity.html">Tirage à pitié</a>
   </nav>
 
-  <button id="ouvrir">Ouvrir un booster</button>
-  <button id="tout" class="secondaire">Tout retourner</button>
+  <div id="scene">
+    <div class="pack" id="pack" tabindex="0" role="button" aria-label="Déchirer le pack">
+      <div class="ombre"></div>
+      <div class="pack-3d">
+        <div class="pack-corps" id="corps">
+          <div class="contenu-pack">
+            <div class="embleme">✦</div>
+            <div class="pack-logo">BOOSTER</div>
+            <div class="pack-sous">SÉRIE 1 · 5 CARTES</div>
+            <div class="rarete-ligne">
+              <span style="color:#4aa3ff">★</span><span style="color:#3ddc84">★</span><span style="color:#d79bff">★</span><span style="color:#ff6b88">★</span><span style="color:#ffd75a">★</span>
+            </div>
+          </div>
+          <div class="code-barres"></div>
+          <div class="copyright">© 2026</div>
+          <div class="sceau sceau-bas"></div>
+        </div>
+        <div class="pack-haut" id="haut">
+          <div class="sceau sceau-haut"></div>
+          <div class="bandeau">◄ OUVRIR ICI ►</div>
+        </div>
+        <div class="coupe"></div>
+        <div class="ciseaux">✂️</div>
+        <div class="eclat"></div>
+      </div>
+    </div>
+    <p class="consigne" id="consigne">👆 Glisse sur le haut du pack pour le déchirer (ou clique dessus)</p>
+  </div>
 
   <div class="grille" id="booster"></div>
+
+  <div id="actions">
+    <button id="tout" class="secondaire" hidden>Tout retourner</button>
+    <button id="nouveau" hidden>Nouveau pack</button>
+  </div>
 
   <div class="panneau">
     <strong>Taux de tirage</strong>
@@ -30,39 +317,189 @@
 
   <script src="cards.js"></script>
   <script>
+    const pack = document.getElementById("pack");
+    const haut = document.getElementById("haut");
+    const corps = document.getElementById("corps");
+    const consigne = document.getElementById("consigne");
     const zone = document.getElementById("booster");
+    const btnTout = document.getElementById("tout");
+    const btnNouveau = document.getElementById("nouveau");
 
-    function retourner(el, carte) {
+    let ouvert = false;
+
+    // ----- Forme de la pochette : bords crantés + déchirure irrégulière -----
+    // Le haut et le corps partagent exactement la même ligne de déchirure.
+    const W = 220, H = 320, YT = 62, DENT = 7, N = 22;
+
+    function construirePack() {
+      const jit = Array.from({ length: N + 1 }, () => Math.round(Math.random() * 6));
+      const x = (i) => (i * W / N);
+
+      // Haut : crans en haut, déchirure irrégulière en bas
+      const hp = [];
+      for (let i = 0; i <= N; i++) hp.push(`${x(i)}px ${i % 2 ? 0 : DENT}px`);
+      for (let i = N; i >= 0; i--) hp.push(`${x(i)}px ${YT + jit[i]}px`);
+      haut.style.clipPath = `polygon(${hp.join(",")})`;
+
+      // Corps : déchirure irrégulière en haut, crans en bas
+      const hc = H - YT;
+      const cp = [];
+      for (let i = 0; i <= N; i++) cp.push(`${x(i)}px ${jit[i]}px`);
+      for (let i = N; i >= 0; i--) cp.push(`${x(i)}px ${i % 2 ? hc : hc - DENT}px`);
+      corps.style.clipPath = `polygon(${cp.join(",")})`;
+    }
+
+    // ----- Retourner une carte -----
+    function retourner(el) {
       if (el.classList.contains("retournee")) return;
       el.classList.add("retournee");
-      if (carte.rarete === "legendaire" || carte.rarete === "mythique") {
-        setTimeout(() => flashEcran(RARETES[carte.rarete].couleur), 250);
+      const r = el._carte.rarete;
+      if (r === "legendaire" || r === "mythique") {
+        setTimeout(() => flashEcran(RARETES[r].couleur), 250);
       }
     }
 
-    function ouvrirBooster() {
-      zone.innerHTML = "";
+    // ----- Tirage des 5 cartes -----
+    function tirerBooster() {
+      const liste = [];
       for (let i = 0; i < 5; i++) {
         const minimum = i === 4 ? "super_rare" : null;
         const carte = tirerCarte(tirerRarete(minimum));
-        const el = creerCarteHTML(carte, false, tirerVariante());
-        el.addEventListener("click", () => retourner(el, carte));
-        el._carte = carte;
-        zone.appendChild(el);
+        liste.push({ carte, variante: tirerVariante() });
       }
+      return liste;
     }
 
-    document.getElementById("ouvrir").onclick = ouvrirBooster;
-    document.getElementById("tout").onclick = () =>
-      zone.querySelectorAll(".carte").forEach((c, i) =>
-        setTimeout(() => retourner(c, c._carte), i * 300));
+    // ----- Ouverture du pack -----
+    function ouvrir() {
+      if (ouvert) return;
+      ouvert = true;
 
-    // Affichage des taux
+      const tirage = tirerBooster();
+
+      // La lumière de l'éclat prend la couleur de la meilleure carte
+      const meilleure = tirage
+        .map(t => t.carte.rarete)
+        .reduce((a, b) => ORDRE.indexOf(b) > ORDRE.indexOf(a) ? b : a);
+      pack.style.setProperty("--glow", RARETES[meilleure].couleur);
+
+      pack.classList.remove("tire");
+      pack.classList.add("ouvert");
+      consigne.style.visibility = "hidden";
+
+      setTimeout(() => {
+        pack.classList.add("cache");
+        zone.innerHTML = "";
+        tirage.forEach((t, i) => {
+          const el = creerCarteHTML(t.carte, false, t.variante);
+          el._carte = t.carte;
+          el.style.setProperty("--i", i);
+          el.classList.add("distribuee");
+          el.addEventListener("click", () => retourner(el));
+          zone.appendChild(el);
+        });
+        btnTout.hidden = false;
+        btnNouveau.hidden = false;
+      }, 850);
+    }
+
+    // ----- Nouveau pack -----
+    function nouveauPack() {
+      zone.innerHTML = "";
+      btnTout.hidden = true;
+      btnNouveau.hidden = true;
+      ouvert = false;
+      pack.classList.remove("ouvert", "cache", "tire");
+      haut.style.transform = "";
+      haut.style.transformOrigin = "";
+      appliquer(0, 1);
+      construirePack();               // nouvelle déchirure, jamais deux fois la même
+      pack.classList.add("arrive");
+      setTimeout(() => pack.classList.remove("arrive"), 700);
+      consigne.style.visibility = "visible";
+    }
+
+    // ----- Déchirure : le haut se soulève du côté déjà déchiré -----
+    let glisse = false, departX = 0, deplace = 0;
+    const DISTANCE = 150; // pixels à parcourir pour déchirer
+
+    function appliquer(p, dir) {
+      pack.style.setProperty("--p", p);
+      pack.style.setProperty("--pos", dir > 0 ? p : 1 - p);
+      pack.style.setProperty("--flip", dir > 0 ? 1 : -1);
+      haut.style.transformOrigin = dir > 0 ? "100% 100%" : "0% 100%";
+      haut.style.transform = p === 0 ? "" : `rotate(${dir * p * 14}deg) translateY(${-p * 5}px)`;
+    }
+
+    // Reflet et inclinaison qui suivent le pointeur
+    function suivre(e) {
+      const b = pack.getBoundingClientRect();
+      const px = Math.max(0, Math.min(W, e.clientX - b.left));
+      const py = Math.max(0, Math.min(H, e.clientY - b.top));
+      pack.style.setProperty("--mxp", px + "px");
+      pack.style.setProperty("--myp", py + "px");
+      pack.style.setProperty("--rx", ((0.5 - py / H) * 14) + "deg");
+      pack.style.setProperty("--ry", ((px / W - 0.5) * 14) + "deg");
+    }
+
+    pack.addEventListener("pointerdown", (e) => {
+      if (ouvert) return;
+      glisse = true;
+      departX = e.clientX;
+      deplace = 0;
+      pack.classList.add("tire");
+      pack.setPointerCapture(e.pointerId);
+    });
+
+    pack.addEventListener("pointermove", (e) => {
+      if (ouvert) return;
+      suivre(e);
+      if (!glisse) return;
+      const dx = e.clientX - departX;
+      deplace = Math.max(deplace, Math.abs(dx));
+      const p = Math.min(Math.abs(dx) / DISTANCE, 1);
+      appliquer(p, dx >= 0 ? 1 : -1);
+      if (p >= 1) { glisse = false; ouvrir(); }
+    });
+
+    pack.addEventListener("pointerup", () => {
+      if (!glisse || ouvert) return;
+      glisse = false;
+      pack.classList.remove("tire");
+      if (deplace < 8) ouvrir();      // simple clic : on ouvre direct
+      else appliquer(0, 1);           // glissé trop court : le pack se referme
+    });
+
+    pack.addEventListener("pointercancel", () => {
+      glisse = false;
+      if (!ouvert) { pack.classList.remove("tire"); appliquer(0, 1); }
+    });
+
+    pack.addEventListener("pointerleave", () => {
+      if (glisse) return;
+      pack.style.setProperty("--rx", "0deg");
+      pack.style.setProperty("--ry", "0deg");
+      pack.style.setProperty("--mxp", "70px");
+      pack.style.setProperty("--myp", "70px");
+    });
+
+    // Clavier : Entrée ou Espace
+    pack.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ouvrir(); }
+    });
+
+    // ----- Boutons -----
+    btnTout.onclick = () =>
+      zone.querySelectorAll(".carte").forEach((c, i) =>
+        setTimeout(() => retourner(c), i * 300));
+    btnNouveau.onclick = nouveauPack;
+
+    // ----- Affichage des taux -----
     document.getElementById("taux").innerHTML = ORDRE.map(r =>
       `<tr><td><span class="pastille" style="background:${RARETES[r].couleur}"></span>${RARETES[r].label} <span style="color:${RARETES[r].couleur}">${etoilesTexte(r)}</span></td>
        <td>${RARETES[r].taux} %</td></tr>`).join("");
 
-    ouvrirBooster();
+    construirePack();
   </script>
 </body>
 </html>
